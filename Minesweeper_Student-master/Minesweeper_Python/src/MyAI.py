@@ -32,42 +32,18 @@ class MyAI( AI ):
 
 		self.board = [['?' for _ in range(colDimension)] for _ in range(rowDimension)]
 		self.mines_remaining = totalMines
+		self.actionQueue = []
 
 		########################################################################
 		#							YOUR CODE ENDS							   #
 		########################################################################
 
-	
 	def printBoard(self) -> None:
 		# Only for testing and debugging purposes
 		print("=" * self.rowDimension)
 		for row in self.board:
 			print(' '.join(row))
 		print("=" * self.rowDimension)
-
-
-	def countNeighborsOfType(self, row: int, col: int, type: str):
-		# Directions to check: up, down, left, right, and diagonals
-		directions = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)]
-		neighbor_count = 0
-        
-		for dir_row, dir_col in directions:
-			r, c = row + dir_row, col + dir_col
-			if 0 <= r < self.rowDimension and 0 <= c < self.colDimension and self.board[r][c] == type:
-				neighbor_count += 1
-        
-		return neighbor_count
-	
-	def getFirstNeighborOfType(self, row: int, col: int, type: str):
-		# Directions to check: up, down, left, right, and diagonals
-		directions = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)]
-        
-		for dir_row, dir_col in directions:
-			r, c = row + dir_row, col + dir_col
-			if 0 <= r < self.rowDimension and 0 <= c < self.colDimension and self.board[r][c] == type:
-				return c, self.colDimension-r-1
-			
-		return -1, -1
 	
 	def getNeighborsOfType(self, row: int, col: int, type: str):
 		# Directions to check: up, down, left, right, and diagonals
@@ -81,6 +57,22 @@ class MyAI( AI ):
 			
 		return neighbors
 	
+	def confirm_121_pattern(self, row: int, col: int):
+		if row+1 < self.rowDimension and row-1 >= 0 and self.board[row-1][col] == '1' and self.board[row+1][col] == '1':
+			if col+1 < self.colDimension and self.board[row+1][col+1] == '?' and self.board[row][col+1] == '?' and self.board[row-1][col+1] == '?':
+				if not (col-1 >= 0 and self.board[row][col-1] == '?'):
+					self.board[row+1][col+1] = 'F'
+					self.board[row-1][col+1] = 'F'
+					self.actionQueue.append(Action(AI.Action.UNCOVER, col+1, self.colDimension-row-1))
+
+		return 0
+
+	
+	def runQueuedActions(self):
+		action = self.actionQueue.pop(0)
+		self.lastX = action.getX()
+		self.lastY = action.getY()
+		return action
 
 		
 	def getAction(self, number: int) -> "Action Object":
@@ -89,42 +81,72 @@ class MyAI( AI ):
 		#							YOUR CODE BEGINS						   #
 		########################################################################
 
+		# FOR DEBUGGING
+		if number == -1:
+			number = 'F'
+
 		# update board with number
 		self.board[self.colDimension-1-self.lastY][self.lastX] = str(number)
+
+		if self.actionQueue:
+			return self.runQueuedActions()
 
 		# First we will uncover covered neigbours to '0'
 		for row in range(self.rowDimension):
 			for col in range(self.colDimension):
-				if self.board[row][col] == '0' and self.countNeighborsOfType(row, col, '?') > 0:
-					self.lastX, self.lastY = self.getFirstNeighborOfType(row, col, '?')
+				if self.board[row][col] == '0' and len(self.getNeighborsOfType(row, col, '?')) > 0:
+					self.lastX, self.lastY = self.getNeighborsOfType(row, col, '?')[0]
 					return Action(AI.Action.UNCOVER, self.lastX, self.lastY)
 				
 		# from now on we will always first check if a tile has any covered neighbours to speed up search
 		# Second we will flag neigbours to tiles with amount of covered tiles neighbouring equal to its number
+		# MARKING BOMBS
 		for row in range(self.rowDimension):
 			for col in range(self.colDimension):
-				if self.countNeighborsOfType(row, col, '?') > 0 and self.board[row][col] == str(self.countNeighborsOfType(row, col, '?') + self.countNeighborsOfType(row, col, 'F')):
+				if self.board[row][col] != '?' and self.board[row][col] != '0' and len(self.getNeighborsOfType(row, col, '?')) > 0 and self.board[row][col] == str(len(self.getNeighborsOfType(row, col, '?')) + len(self.getNeighborsOfType(row, col, 'F'))):
+					# FOR OPTIMIZATION
 					bombs = self.getNeighborsOfType(row, col, '?')
 					for bomb in bombs:
 						x, y = bomb
 						self.board[self.colDimension-1-y][x] = 'F'
 					
-					# self.lastX, self.lastY = self.getFirstNeighborOfType(row, col, '?')
+					# FOR DEBUG
+					# self.lastX, self.lastY = self.getNeighborsOfType(row, col, '?')[0]
 					# return Action(AI.Action.FLAG, self.lastX, self.lastY)
 				
-		# Third, if number of flags (marked with number = -1) is same as tile's number, we'll uncover all its neigbours
+		# Third, if number of flags (marked with F) is same as tile's number, we'll uncover all its neigbours
 		for row in range(self.rowDimension):
 			for col in range(self.colDimension):
-				if self.countNeighborsOfType(row, col, '?') > 0 and self.board[row][col] == str(self.countNeighborsOfType(row, col, 'F')):
-					self.lastX, self.lastY = self.getFirstNeighborOfType(row, col, '?')
+				if self.board[row][col] == str(len(self.getNeighborsOfType(row, col, 'F'))) and len(self.getNeighborsOfType(row, col, '?')) > 0:
+					self.lastX, self.lastY = self.getNeighborsOfType(row, col, '?')[0]
 					return Action(AI.Action.UNCOVER, self.lastX, self.lastY)
 				
+		"""
+		# Fourth, 1-2-1 pattern
+		print("got to fourth")
+		for row in range(self.rowDimension):
+			for col in range(self.colDimension):
+				# Not sure if these extra conditions are neccessary (they are only here to make it more efficient)
+				if self.board[row][col] == '2' and len(self.getNeighborsOfType(row, col, '1')) >= 2 and len(self.getNeighborsOfType(row, col, '?')) == 3:
+					self.confirm_121_pattern(row, col)
+
+		if self.actionQueue:
+			return self.runQueuedActions()
+
+		"""
+
+
+		# Fifth, 1-2-2-1 pattern
+
+		
+		
+		
 		# If the puzzle still hasn't been completed to this point, we'll start doing some probability and guessing
 		# For now, I'm just choosing any first random tile xd
 		for row in range(self.rowDimension):
 			for col in range(self.colDimension):
 				if self.board[row][col] == '?':
-					self.lastX, self.lastY = row, col
+					self.lastX, self.lastY = col, self.colDimension-row-1
 					return Action(AI.Action.UNCOVER, self.lastX, self.lastY)
 
 
