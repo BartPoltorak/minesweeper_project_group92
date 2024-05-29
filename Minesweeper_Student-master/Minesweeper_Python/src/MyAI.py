@@ -61,7 +61,6 @@ class MyAI( AI ):
 	def getFirstNeighborOfType(self, row: int, col: int, type: str):
 		# Directions to check: up, down, left, right, and diagonals
 		directions = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)]
-		neighbor_count = 0
         
 		for dir_row, dir_col in directions:
 			r, c = row + dir_row, col + dir_col
@@ -69,6 +68,18 @@ class MyAI( AI ):
 				return c, self.colDimension-r-1
 			
 		return -1, -1
+	
+	def getNeighborsOfType(self, row: int, col: int, type: str):
+		# Directions to check: up, down, left, right, and diagonals
+		directions = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)]
+		neighbors = []
+        
+		for dir_row, dir_col in directions:
+			r, c = row + dir_row, col + dir_col
+			if 0 <= r < self.rowDimension and 0 <= c < self.colDimension and self.board[r][c] == type:
+				neighbors.append((c, self.colDimension-r-1))
+			
+		return neighbors
 	
 
 		
@@ -81,7 +92,7 @@ class MyAI( AI ):
 		# update board with number
 		self.board[self.colDimension-1-self.lastY][self.lastX] = str(number)
 
-		# First we will uncover neigbours to '0' tiles with covered tiles neighbouring
+		# First we will uncover covered neigbours to '0'
 		for row in range(self.rowDimension):
 			for col in range(self.colDimension):
 				if self.board[row][col] == '0' and self.countNeighborsOfType(row, col, '?') > 0:
@@ -92,14 +103,19 @@ class MyAI( AI ):
 		# Second we will flag neigbours to tiles with amount of covered tiles neighbouring equal to its number
 		for row in range(self.rowDimension):
 			for col in range(self.colDimension):
-				if self.countNeighborsOfType(row, col, '?') > 0 and self.board[row][col] == str(self.countNeighborsOfType(row, col, '?') + self.countNeighborsOfType(row, col, '-1')):
-					self.lastX, self.lastY = self.getFirstNeighborOfType(row, col, '?')
-					return Action(AI.Action.FLAG, self.lastX, self.lastY)
+				if self.countNeighborsOfType(row, col, '?') > 0 and self.board[row][col] == str(self.countNeighborsOfType(row, col, '?') + self.countNeighborsOfType(row, col, 'F')):
+					bombs = self.getNeighborsOfType(row, col, '?')
+					for bomb in bombs:
+						x, y = bomb
+						self.board[self.colDimension-1-y][x] = 'F'
+					
+					# self.lastX, self.lastY = self.getFirstNeighborOfType(row, col, '?')
+					# return Action(AI.Action.FLAG, self.lastX, self.lastY)
 				
 		# Third, if number of flags (marked with number = -1) is same as tile's number, we'll uncover all its neigbours
 		for row in range(self.rowDimension):
 			for col in range(self.colDimension):
-				if self.countNeighborsOfType(row, col, '?') > 0 and self.board[row][col] == str(self.countNeighborsOfType(row, col, '-1')):
+				if self.countNeighborsOfType(row, col, '?') > 0 and self.board[row][col] == str(self.countNeighborsOfType(row, col, 'F')):
 					self.lastX, self.lastY = self.getFirstNeighborOfType(row, col, '?')
 					return Action(AI.Action.UNCOVER, self.lastX, self.lastY)
 				
