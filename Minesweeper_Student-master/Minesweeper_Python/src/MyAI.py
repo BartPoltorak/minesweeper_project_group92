@@ -82,6 +82,7 @@ class MyAI( AI ):
 		########################################################################
 		#							YOUR CODE BEGINS						   #
 		########################################################################
+		""" debugging
 		print(self.rowDimension)
 		print(self.colDimension)
 		print(self.totalMines)
@@ -89,7 +90,7 @@ class MyAI( AI ):
 		print(self.lastY)
 		print(self.board)
 		print(self.mines_remaining)
-		print(self.actionQueue)
+		print(self.actionQueue)"""
 		# FOR DEBUGGING
 		if number == -1:
 			number = 'F'
@@ -98,16 +99,12 @@ class MyAI( AI ):
 		self.board[self.rowDimension-1-self.lastY][self.lastX] = str(number)
 
 		if self.actionQueue:
-			print('is this ran')
 			return self.runQueuedActions()
 
 		# First we will uncover covered neigbours to '0'
 		for row in range(self.rowDimension):
 			for col in range(self.colDimension):
 				if self.board[row][col] == '0' and len(self.getNeighborsOfType(row, col, '?')) > 0:
-					print("########")
-					print(self.getNeighborsOfType(row, col, '?'))
-					print("########")
 					self.lastX, self.lastY = self.getNeighborsOfType(row, col, '?')[0]
 					return Action(AI.Action.UNCOVER, self.lastX, self.lastY)
 				
