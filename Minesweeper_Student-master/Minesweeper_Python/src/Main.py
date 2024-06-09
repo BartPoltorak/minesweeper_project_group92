@@ -48,7 +48,7 @@ from World import World
 from ManualAI import ManualAI
 from RandomAI import RandomAI
 from MyAI import MyAI
-
+from interruptingcow import timeout # add import
 
 def main():
 
@@ -108,8 +108,14 @@ def main():
 					f = os.path.join(dirpath, filename)
 
 					world = World(filename=f, aiType=aiType, verbose=verbose, debug=debug)
+					score = 0
+					try:
+						with timeout(180, exception=RuntimeError):
+							score = world.run()
+					except RuntimeError:
+						print("ERROR: Timed out!")
+						continue
 
-					score = world.run()
 					if score == 1:
 						scoreBeg += 1
 					elif score == 2:

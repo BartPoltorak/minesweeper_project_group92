@@ -34,8 +34,9 @@ class MyAI( AI ):
 		self.actionQueue = []
 		self.debug = False
 		self.strong_debug = False
-
 		
+
+
 		########################################################################
 		#							YOUR CODE ENDS							   #
 		########################################################################
@@ -156,62 +157,43 @@ class MyAI( AI ):
 						C.update(neighbors)
 		return list(V), list(C)
 
-	def backtrackAndGuess(self):
-		V, C = self.buildFrontiers()
-		#print(V, C)
+	# tried to implement recursive backtracking but got worse results 
+	def backtrack(self, assignment, index, V, C):
+		if index == len(V):
+			if self.isConsistent(assignment, V, C):
+				return assignment
+			return None
+		assignment[index] = 0
+		if self.isConsistentPartial(assignment, V, C, index):
+			result = self.backtrack(assignment, index+1, V, C)
+			if result:
+				return result
+		assignment[index] = 1
+		if self.isConsistentPartial(assignment, V, C, index):
+			result = self.backtrack(assignment, index+1, V, C)
+			if result:
+				return result
+		return None
 
-		# if there are no covered frontier tiles just do random move
-		if not V:
-			for row in range(self.rowDimension):
-				for col in range(self.colDimension):
-					if self.board[row][col] == '?':
-						self.lastX, self.lastY = col, self.rowDimension - row - 1
-						return Action(AI.Action.UNCOVER, self.lastX, self.lastY)
-			return Action(AI.Action.LEAVE)
-
-		# if the frontier has more than 18 points, then just pick random instead of calculating
-		if len(V) > 18:
-			for row in range(self.rowDimension):
-				for col in range(self.colDimension):
-					if self.board[row][col] == '?':
-						self.lastX, self.lastY = col, self.rowDimension - row - 1
-						return Action(AI.Action.UNCOVER, self.lastX, self.lastY)
-			return Action(AI.Action.LEAVE)
-
-		# assignments are basically all the combinations of where it could be a mine
-		possible_assignments = list(product([0, 1], repeat=len(V)))
-		#print("LENGTH of possible: ",len(possible_assignments))
+	# tried to optimze but got worse results but didn't delete just in case
+	def isConsistentPartial(self, assignment, V, C, upto_index):
+		# Create a partial copy of board
+		board_copy = [row[:] for row in self.board]
+		for i, (col, row) in enumerate(V[:upto_index + 1]):
+			board_copy[self.rowDimension - row - 1][col] = 'F' if assignment[i] == 1 else '?'
+		# Check consistency only up to the current index
+		for col, row in C:
+			num_mines = 0
+			for ncol, nrow in self.getNeighborsOfType(self.rowDimension - row - 1, col, '?'):
+				if board_copy[self.rowDimension - nrow - 1][ncol] == 'F':
+					num_mines += 1
+			for ncol, nrow in self.getNeighborsOfType(self.rowDimension - row - 1, col, 'F'):
+				if board_copy[self.rowDimension - nrow - 1][ncol] == 'F':
+					num_mines += 1
+			if num_mines != int(self.board[self.rowDimension - row - 1][col]):
+				return False
+		return True
 		
-		# check if is consistent with our board
-		# if it is consistent, then we will put it in list
-		consistent_assignments = []
-		for assignment in possible_assignments:
-			#if assignment == (0,0,0,0,1,0,1,0,1):
-				if self.isConsistent(assignment, V, C):
-					#print(assignment)
-					consistent_assignments.append(assignment)
-
-		# if it is consistent then find the lowest probable tile that will be a mine
-		if consistent_assignments:
-			assignment_sums = [0] * len(V)
-			for assignment in consistent_assignments:
-				for i, val in enumerate(assignment):
-					assignment_sums[i] += val
-			min_sum = min(assignment_sums)
-			safe_indices = [i for i, val in enumerate(assignment_sums) if val == min_sum]
-			safe_tiles = [V[i] for i in safe_indices]
-			if safe_tiles:
-				self.lastX, self.lastY = safe_tiles[0]
-				return Action(AI.Action.UNCOVER, self.lastX, self.lastY)
-
-		# if we still haven't uncovered anything then just pick a random tile and move on
-		for row in range(self.rowDimension):
-			for col in range(self.colDimension):
-				if self.board[row][col] == '?':
-					self.lastX, self.lastY = col, self.rowDimension - row - 1
-					return Action(AI.Action.UNCOVER, self.lastX, self.lastY)
-			return Action(AI.Action.LEAVE)
-
 	# checking if the assignment is consistent with the board's possibilities
 	def isConsistent(self, assignment, V, C):
 		# copy the board and write the assignment onto the board
@@ -238,6 +220,57 @@ class MyAI( AI ):
 			if num_mines != int(self.board[self.rowDimension - row - 1][col]):
 				return False
 		return True
+
+	def backtrackAndGuess(self):
+		V, C = self.buildFrontiers()
+		# if there are no covered frontier tiles just do random move
+		if not V:
+			for row in range(self.rowDimension):
+				for col in range(self.colDimension):
+					if self.board[row][col] == '?':
+						self.lastX, self.lastY = col, self.rowDimension - row - 1
+						return Action(AI.Action.UNCOVER, self.lastX, self.lastY)
+			return Action(AI.Action.LEAVE)
+		
+		# if the frontier has more than 18 tiles to do combination, then just pick random instead of calculating
+		if len(V) > 21:
+			for row in range(self.rowDimension):
+				for col in range(self.colDimension):
+					if self.board[row][col] == '?':
+						self.lastX, self.lastY = col, self.rowDimension - row - 1
+						return Action(AI.Action.UNCOVER, self.lastX, self.lastY)
+			return Action(AI.Action.LEAVE)
+
+		# assignments are basically all the combinations of where it could be a mine
+		possible_assignments = list(product([0, 1], repeat=len(V)))
+		
+		# check if is consistent with our board
+		# if it is consistent, then we will put it in list
+		consistent_assignments = []
+		for assignment in possible_assignments:
+				if self.isConsistent(assignment, V, C):
+					consistent_assignments.append(assignment)
+
+		# if it is consistent then find the lowest probable tile that will be a mine
+		if consistent_assignments:
+			assignment_sums = [0] * len(V)
+			for assignment in consistent_assignments:
+				for i, val in enumerate(assignment):
+					assignment_sums[i] += val
+			min_sum = min(assignment_sums)
+			safe_indices = [i for i, val in enumerate(assignment_sums) if val == min_sum]
+			safe_tiles = [V[i] for i in safe_indices]
+			if safe_tiles:
+				self.lastX, self.lastY = safe_tiles[0]
+				return Action(AI.Action.UNCOVER, self.lastX, self.lastY)
+
+		# if we still haven't uncovered anything then just pick a random tile and move on
+		for row in range(self.rowDimension):
+			for col in range(self.colDimension):
+				if self.board[row][col] == '?':
+					self.lastX, self.lastY = col, self.rowDimension - row - 1
+					return Action(AI.Action.UNCOVER, self.lastX, self.lastY)
+			return Action(AI.Action.LEAVE)
 
 	def getAction(self, number: int) -> "Action Object":
 
