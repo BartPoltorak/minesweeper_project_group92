@@ -232,7 +232,7 @@ class MyAI( AI ):
 						return Action(AI.Action.UNCOVER, self.lastX, self.lastY)
 			return Action(AI.Action.LEAVE)
 		
-		# if the frontier has more than 18 tiles to do combination, then just pick random instead of calculating
+		# if the frontier has more than 21 tiles to do combination, then just pick random instead of calculating
 		if len(V) > 21:
 			for row in range(self.rowDimension):
 				for col in range(self.colDimension):
